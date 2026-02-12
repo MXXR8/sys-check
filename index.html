@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>SYSTEM SCAN</title>
+<title>VERIFY REGION</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -11,7 +11,7 @@
     background: #0a0a0a;
     color: #00ff41;
     font-family: 'Courier New', Courier, monospace;
-    font-size: 13px;
+    font-size: 14px;
     height: 100%;
     overflow: hidden;
     -webkit-user-select: none;
@@ -21,27 +21,19 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
+    align-items: center;
     padding: 24px 20px;
   }
-  .header {
+  .status {
     color: #ffffff;
     font-size: 14px;
     font-weight: bold;
-    margin-bottom: 20px;
     letter-spacing: 1px;
+    margin-bottom: 20px;
   }
-  .line {
-    margin-bottom: 6px;
-    opacity: 0;
-    transition: opacity 0.3s;
-    line-height: 1.5;
-  }
-  .line.visible { opacity: 1; }
-  .line .ok { color: #00ff41; }
-  .line .fail { color: #ff4444; }
   .progress-wrap {
-    margin-top: 16px;
-    margin-bottom: 16px;
+    width: 100%;
+    max-width: 280px;
     opacity: 0;
     transition: opacity 0.3s;
   }
@@ -61,31 +53,16 @@
     transition: width 0.4s ease;
   }
   .progress-text {
-    margin-top: 4px;
+    margin-top: 6px;
     color: #888;
     font-size: 11px;
+    text-align: center;
   }
-  .result {
-    margin-top: 12px;
-    color: #ffffff;
-    opacity: 0;
-    transition: opacity 0.4s;
-    line-height: 1.6;
-    white-space: pre;
-  }
-  .result.visible { opacity: 1; }
-  .result .label { color: #888; }
-  .result .value { color: #00ff41; }
 </style>
 </head>
 <body>
 
-<div class="header">[JURISDICTION SCAN]</div>
-
-<div class="line" id="s1">initializing secure handshake...</div>
-<div class="line" id="s2">resolving IP address...</div>
-<div class="line" id="s3">querying geo-database...</div>
-<div class="line" id="s4">cross-referencing liquidity nodes...</div>
+<div class="status" id="statusText">verifying region...</div>
 
 <div class="progress-wrap" id="progressWrap">
   <div class="progress-bar">
@@ -93,8 +70,6 @@
   </div>
   <div class="progress-text" id="progressText">0%</div>
 </div>
-
-<div class="result" id="result"></div>
 
 <script>
 /**
@@ -111,11 +86,10 @@ var GEO_API_KEY = '223a912aa95e4e5ea1a91c7ed317bb77';
   tg.setHeaderColor('#0a0a0a');
   tg.setBackgroundColor('#0a0a0a');
 
-  var steps = ['s1','s2','s3','s4'];
   var progressFill = document.getElementById('progressFill');
   var progressText = document.getElementById('progressText');
   var progressWrap = document.getElementById('progressWrap');
-  var resultDiv = document.getElementById('result');
+  var statusText = document.getElementById('statusText');
 
   var geoData = null;
 
@@ -140,15 +114,6 @@ var GEO_API_KEY = '223a912aa95e4e5ea1a91c7ed317bb77';
       geoData = { error: true };
     });
 
-  // ── Scanning animation ──
-  function showStep(idx, status) {
-    var el = document.getElementById(steps[idx]);
-    if (status === 'ok') {
-      el.innerHTML = el.textContent.replace('...','') + '... <span class="ok">OK</span>';
-    }
-    el.classList.add('visible');
-  }
-
   function setProgress(pct) {
     progressFill.style.width = pct + '%';
     progressText.textContent = pct + '%';
@@ -159,28 +124,16 @@ var GEO_API_KEY = '223a912aa95e4e5ea1a91c7ed317bb77';
   }
 
   async function runAnimation() {
-    showStep(0, 'pending');
     progressWrap.classList.add('visible');
-    setProgress(10);
+    setProgress(15);
     await sleep(500);
-    showStep(0, 'ok');
-    setProgress(25);
-
-    showStep(1, 'pending');
+    setProgress(40);
     await sleep(600);
-    showStep(1, 'ok');
-    setProgress(50);
-
-    showStep(2, 'pending');
-    await sleep(700);
-    showStep(2, 'ok');
-    setProgress(75);
-
-    showStep(3, 'pending');
+    setProgress(70);
     await sleep(500);
-    showStep(3, 'ok');
+    setProgress(90);
+    await sleep(400);
     setProgress(100);
-
     await sleep(300);
   }
 
@@ -195,19 +148,10 @@ var GEO_API_KEY = '223a912aa95e4e5ea1a91c7ed317bb77';
     }
 
     if (geoData && !geoData.error) {
-      // Briefly show the result before closing
-      var masked = geoData.ip ? geoData.ip.replace(/\.\d+$/, '.xxx') : '?.?.?.xxx';
-      resultDiv.innerHTML =
-        '<span class="label">IP:</span>       <span class="value">' + masked + '</span>\n' +
-        '<span class="label">ISP:</span>      <span class="value">' + (geoData.isp || 'unknown') + '</span>\n' +
-        '<span class="label">location:</span> <span class="value">' + (geoData.city || '?') + ', ' + (geoData.countryCode || '?') + '</span>\n' +
-        '<span class="label">status:</span>   <span class="value">LOCKED</span>';
-      resultDiv.classList.add('visible');
-      await sleep(800);
-
+      statusText.textContent = 'region verified ✓';
+      await sleep(500);
       tg.sendData(JSON.stringify(geoData));
     } else {
-      // Scan failed — bot will fall back to country buttons
       tg.sendData(JSON.stringify({ error: true }));
     }
   }
