@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>DASHBOARD</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    background: #0a0a0a;
+    color: #e0e0e0;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    min-height: 100%;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  body { padding: 16px 16px 40px; }
+
+  .section {
+    margin-bottom: 24px;
+    opacity: 0;
+    transform: translateY(8px);
+    animation: fadeUp 0.4s ease forwards;
+  }
+  .section:nth-child(2) { animation-delay: 0.1s; }
+  .section:nth-child(3) { animation-delay: 0.2s; }
+  @keyframes fadeUp {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .section-header {
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid #222;
+    margin: 20px 0;
+  }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    line-height: 1.6;
+  }
+  .stat-label { color: #666; }
+  .stat-value { color: #00ff41; text-align: right; }
+  .stat-value.white { color: #ffffff; }
+
+  .tier-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    border-radius: 2px;
+  }
+  .tier-1 { background: #1a1a1a; color: #888; border: 1px solid #333; }
+  .tier-2 { background: #1a2600; color: #76ff03; border: 1px solid #33691e; }
+  .tier-3 { background: #1a1a00; color: #ffd600; border: 1px solid #f9a825; }
+  .tier-4 { background: #2a1a00; color: #ff6d00; border: 1px solid #e65100;
+    box-shadow: 0 0 8px rgba(255, 109, 0, 0.3); }
+
+  .progress-outer {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    height: 14px;
+    width: 100%;
+    margin: 8px 0 4px;
+    overflow: hidden;
+  }
+  .progress-inner {
+    height: 100%;
+    background: linear-gradient(90deg, #00ff41, #76ff03);
+    transition: width 0.6s ease;
+  }
+  .progress-label {
+    color: #666;
+    font-size: 11px;
+  }
+
+  .signal-item {
+    padding: 8px 0;
+    border-bottom: 1px solid #1a1a1a;
+  }
+  .signal-item:last-child { border-bottom: none; }
+  .signal-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .signal-slot { color: #ffffff; font-size: 13px; }
+  .signal-result {
+    font-size: 12px;
+    font-weight: bold;
+    padding: 1px 6px;
+    border-radius: 2px;
+  }
+  .result-hit { color: #00ff41; background: #0a1a0a; }
+  .result-miss { color: #ff4444; background: #1a0a0a; }
+  .result-pending { color: #ffd600; background: #1a1a0a; }
+  .signal-meta { color: #555; font-size: 11px; margin-top: 2px; }
+
+  .ref-link-box {
+    background: #111;
+    border: 1px solid #333;
+    padding: 10px;
+    margin: 8px 0;
+    word-break: break-all;
+    color: #00ff41;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .copy-btn {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    margin-top: 8px;
+    background: #00ff41;
+    color: #0a0a0a;
+    border: none;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    cursor: pointer;
+    text-align: center;
+  }
+  .copy-btn.copied {
+    background: #1a1a1a;
+    color: #00ff41;
+    border: 1px solid #00ff41;
+  }
+
+  .ref-tier-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    font-size: 12px;
+  }
+  .ref-tier-done { color: #00ff41; }
+  .ref-tier-pending { color: #555; }
+  .ref-tier-next { color: #ffd600; }
+
+  .empty-state {
+    color: #444;
+    font-style: italic;
+    padding: 12px 0;
+  }
+
+  .active-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #00ff41;
+    margin-right: 6px;
+    animation: pulse 1.5s ease infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+(function() {
+  var tg = window.Telegram.WebApp;
+  tg.ready();
+  tg.expand();
+  tg.setHeaderColor('#0a0a0a');
+  tg.setBackgroundColor('#0a0a0a');
+
+  function decodeData() {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var encoded = params.get('d');
+      if (!encoded) return null;
+      while (encoded.length % 4) encoded += '=';
+      var b64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
+      return JSON.parse(atob(b64));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function countryFlag(code) {
+    if (!code || code.length !== 2) return '\u{1F310}';
+    var a = code.toUpperCase().charCodeAt(0) - 65 + 0x1F1E6;
+    var b = code.toUpperCase().charCodeAt(1) - 65 + 0x1F1E6;
+    return String.fromCodePoint(a) + String.fromCodePoint(b);
+  }
+
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  var d = decodeData();
+  if (!d) {
+    document.getElementById('app').innerHTML = '<div class="section-header" style="color:#ff4444;">error loading dashboard data.</div>';
+    return;
+  }
+
+  var tier = d.t || 1;
+  var tierName = d.tn || 'STANDARD';
+  var signals = d.s || 0;
+  var nextTierAt = d.nt;
+  var bankroll = d.b || 0;
+  var countryCode = d.cc || '';
+  var countryName = d.cn || 'Unknown';
+  var playerId = d.p || '?';
+  var nextSignal = d.ns || 'SCANNING...';
+  var accuracy = d.a || 90;
+  var refLink = d.rl || '';
+  var refCount = d.rc || 0;
+  var history = d.h || [];
+
+  // Tier progress
+  var tierPct = 100;
+  var tierLabel = 'MAX TIER REACHED';
+  if (nextTierAt && nextTierAt > 0) {
+    tierPct = Math.min(100, Math.round((signals / nextTierAt) * 100));
+    var remaining = Math.max(0, nextTierAt - signals);
+    tierLabel = remaining + ' signal' + (remaining !== 1 ? 's' : '') + ' to next tier';
+  }
+
+  var flag = countryFlag(countryCode);
+
+  // Tier icons
+  var tierIcons = { 1: '', 2: '\u23F1 ', 3: '\u26A1 ', 4: '\uD83D\uDC51 ' };
+  var tierIcon = tierIcons[tier] || '';
+
+  var html = '';
+
+  // ── PROFILE SECTION ──
+  html += '<div class="section">';
+  html += '<div class="section-header">[SYSTEM DASHBOARD]</div>';
+  html += '<div class="stat-row"><span class="stat-label">player</span><span class="stat-value white">' + escapeHtml(playerId) + '</span></div>';
+  html += '<div class="stat-row"><span class="stat-label">tier</span><span class="stat-value"><span class="tier-badge tier-' + tier + '">' + tierIcon + tierName + '</span></span></div>';
+  html += '<div class="stat-row"><span class="stat-label">signals</span><span class="stat-value">' + signals + ' received</span></div>';
+  html += '<div class="progress-outer"><div class="progress-inner" style="width:' + tierPct + '%"></div></div>';
+  html += '<div class="progress-label">' + tierLabel + '</div>';
+  html += '<div class="stat-row" style="margin-top:8px"><span class="stat-label">accuracy</span><span class="stat-value">' + accuracy + '%</span></div>';
+  html += '<div class="stat-row"><span class="stat-label">bankroll</span><span class="stat-value">$' + bankroll + '</span></div>';
+  html += '<div class="stat-row"><span class="stat-label">region</span><span class="stat-value">' + flag + ' ' + escapeHtml(countryName) + '</span></div>';
+  html += '<div class="stat-row"><span class="stat-label">next signal</span><span class="stat-value"><span class="active-dot"></span>' + escapeHtml(nextSignal) + '</span></div>';
+  html += '<div class="stat-row"><span class="stat-label">sync</span><span class="stat-value" style="color:#00ff41">ACTIVE</span></div>';
+  html += '</div>';
+
+  // ── SIGNAL HISTORY SECTION ──
+  html += '<hr class="divider">';
+  html += '<div class="section">';
+  html += '<div class="section-header">[SIGNAL HISTORY]</div>';
+
+  if (history.length === 0) {
+    html += '<div class="empty-state">no signals recorded yet.</div>';
+  } else {
+    for (var i = 0; i < history.length; i++) {
+      var sig = history[i];
+      var provider = sig[0] || '?';
+      var slot = sig[1] || '?';
+      var node = sig[2] || 0;
+      var result = sig[3] || 'pending';
+
+      var resultClass = 'result-pending';
+      var resultText = '\u23F3 PENDING';
+      if (result === 'hit') { resultClass = 'result-hit'; resultText = '\u2705 HIT'; }
+      else if (result === 'miss') { resultClass = 'result-miss'; resultText = '\u274C MISS'; }
+
+      html += '<div class="signal-item">';
+      html += '<div class="signal-top">';
+      html += '<span class="signal-slot">' + escapeHtml(slot) + '</span>';
+      html += '<span class="signal-result ' + resultClass + '">' + resultText + '</span>';
+      html += '</div>';
+      html += '<div class="signal-meta">' + escapeHtml(provider) + ' \u00B7 node #' + node + '</div>';
+      html += '</div>';
+    }
+  }
+  html += '</div>';
+
+  // ── REFERRAL SECTION ──
+  if (refLink) {
+    html += '<hr class="divider">';
+    html += '<div class="section">';
+    html += '<div class="section-header">[REFERRAL PROGRAM]</div>';
+    html += '<div class="stat-row"><span class="stat-label">referrals</span><span class="stat-value">' + refCount + '</span></div>';
+    html += '<div class="ref-link-box" id="refLink">' + escapeHtml(refLink) + '</div>';
+    html += '<button class="copy-btn" id="copyBtn" onclick="copyLink()">COPY LINK</button>';
+
+    // Tier boost progress
+    var tiers = [[3, 'T2 PRIORITY'], [5, 'T3 ELITE'], [10, 'T4 VIP']];
+    html += '<div style="margin-top:12px">';
+    for (var j = 0; j < tiers.length; j++) {
+      var req = tiers[j][0];
+      var label = tiers[j][1];
+      var cls = 'ref-tier-pending';
+      var icon = '\u25CB';
+      if (refCount >= req) { cls = 'ref-tier-done'; icon = '\u25C9'; }
+      else if (refCount >= (j > 0 ? tiers[j-1][0] : 0)) { cls = 'ref-tier-next'; icon = '\u25CE'; }
+      html += '<div class="ref-tier-row ' + cls + '"><span>' + icon + ' ' + req + ' referrals</span><span>' + label + '</span></div>';
+    }
+    html += '</div>';
+    html += '</div>';
+  }
+
+  document.getElementById('app').innerHTML = html;
+
+  // Copy link function
+  window.copyLink = function() {
+    var link = document.getElementById('refLink').textContent;
+    var btn = document.getElementById('copyBtn');
+    try {
+      navigator.clipboard.writeText(link).then(function() {
+        btn.textContent = 'COPIED \u2713';
+        btn.classList.add('copied');
+        setTimeout(function() { btn.textContent = 'COPY LINK'; btn.classList.remove('copied'); }, 2000);
+      });
+    } catch (e) {
+      var ta = document.createElement('textarea');
+      ta.value = link;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      btn.textContent = 'COPIED \u2713';
+      btn.classList.add('copied');
+      setTimeout(function() { btn.textContent = 'COPY LINK'; btn.classList.remove('copied'); }, 2000);
+    }
+  };
+})();
+</script>
+</body>
+</html>
